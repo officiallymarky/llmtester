@@ -54,8 +54,8 @@ An interactive CLI tool for benchmarking LLMs across multiple benchmarks. Run vi
 npx llmtester
 
 # Or clone and run locally
-git clone <repo>
-cd llmbenchmark
+git clone https://github.com/officiallymarky/llmtester
+cd llmtester
 npm install
 npm run build
 npm start
