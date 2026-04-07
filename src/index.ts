@@ -579,9 +579,10 @@ async function showMenu() {
           runBenchmarks().then(() => showMenu()).then(() => resolve());
         } else if (cursor === 1) {
           try {
-            execFileSync('node', [path.join(__dirname, '..', 'bin', 'tui.js')], { stdio: 'inherit' });
+            const tuiPath = path.join(path.dirname(process.argv[1]), 'tui.js');
+            execFileSync('node', [tuiPath], { stdio: 'inherit' });
           } catch (e) {
-            // TUI exited
+            console.error('TUI error:', e);
           }
           showMenu().then(() => resolve());
         }
