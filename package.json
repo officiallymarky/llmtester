@@ -1,0 +1,45 @@
+{
+  "name": "llmtester",
+  "version": "1.0.0",
+  "description": "Interactive LLM Evaluation Runner for benchmarking LLMs across multiple benchmarks",
+  "repository": "https://github.com/officiallymarky/llmtester",
+  "main": "dist/index.js",
+  "bin": {
+    "llmtester": "./bin/cli.js"
+  },
+  "files": [
+    "dist/",
+    "bin/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node bin/cli.js",
+    "dev": "tsc && node bin/cli.js"
+  },
+  "keywords": [
+    "llm",
+    "benchmark",
+    "evaluation",
+    "openai",
+    "ai"
+  ],
+  "author": "Marky",
+  "license": "MIT",
+  "dependencies": {
+    "@dsnp/parquetjs": "^1.8.7",
+    "axios": "^1.7.9",
+    "blessed": "^0.1.81",
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.5",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.27",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
