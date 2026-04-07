@@ -553,7 +553,7 @@ async function showMenu() {
   render();
 
   return new Promise<void>((resolve) => {
-    const handleKeypress = (str: string, key: any) => {
+    const handleKeypress = async (str: string, key: any) => {
       if (key.ctrl && key.name === 'c') {
         process.stdin.removeListener('keypress', handleKeypress);
         if (process.stdin.isTTY) process.stdin.setRawMode(false);
@@ -578,11 +578,12 @@ async function showMenu() {
         if (cursor === 0) {
           runBenchmarks().then(() => showMenu()).then(() => resolve());
         } else if (cursor === 1) {
+          const binDir = path.dirname(process.argv[1]);
+          const tuiPath = path.join(binDir, 'tui.js');
           try {
-            const tuiPath = path.join(path.dirname(process.argv[1]), 'tui.js');
             execFileSync('node', [tuiPath], { stdio: 'inherit' });
           } catch (e) {
-            console.error('TUI error:', e);
+            // TUI exited
           }
           showMenu().then(() => resolve());
         }
