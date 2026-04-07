@@ -578,13 +578,11 @@ async function showMenu() {
         if (cursor === 0) {
           runBenchmarks().then(() => showMenu()).then(() => resolve());
         } else if (cursor === 1) {
-          const binDir = path.dirname(process.argv[1]);
-          const tuiPath = path.join(binDir, 'tui.js');
-          try {
-            execFileSync('node', [tuiPath], { stdio: 'inherit' });
-          } catch (e) {
-            // TUI exited
-          }
+          if (process.stdin.isTTY) process.stdin.setRawMode(false);
+          process.stdin.removeAllListeners('keypress');
+          process.stdout.write('\x1b[H\x1b[2J');
+          const tuiPath = path.join(__dirname, '..', 'bin', 'tui.js');
+          execFileSync('node', [tuiPath], { stdio: 'inherit' });
           showMenu().then(() => resolve());
         }
       }
