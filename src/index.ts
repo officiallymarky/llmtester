@@ -44,6 +44,7 @@ async function saveConfig(config: Config): Promise<void> {
 
 interface Config {
   provider: ProviderType;
+  mode?: 'openai' | 'anthropic';
   apiKey: string;
   baseUrl: string;
   modelName: string;
@@ -70,23 +71,42 @@ const COMMON_OPENAI_ENDPOINTS = [
 ];
 
 async function prompt(message: string): Promise<string> {
+  process.stdin.removeAllListeners('keypress');
+  process.stdin.removeAllListeners('readable');
+  process.stdin.removeAllListeners('data');
+  process.stdin.removeAllListeners('end');
   return new Promise((resolve) => {
-    process.stdin.removeAllListeners('keypress');
-    process.stdin.setRawMode?.(false);
-
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    rl.question(message, (answer: string) => {
-      rl.close();
-      resolve(answer);
-    });
-
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-    }
+    process.stdout.write(message);
+    let input = '';
+    const onData = (data: Buffer) => {
+      const ch = data.toString();
+      if (ch === '\r' || ch === '\n') {
+        process.stdin.removeListener('data', onData);
+        process.stdin.pause();
+        console.log('');
+        resolve(input);
+        return;
+      }
+      if (ch === '\x7f' || ch === '\x08') {
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          process.stdout.write('\b \b');
+        }
+        return;
+      }
+      if (ch === '\x03') {
+        process.stdin.removeListener('data', onData);
+        process.exit(0);
+        return;
+      }
+      if (ch.length === 1 && ch >= ' ') {
+        input += ch;
+        process.stdout.write(ch);
+      }
+    };
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on('data', onData);
   });
 }
 
@@ -208,6 +228,21 @@ async function selectProvider(): Promise<{ id: ProviderType; name: string; defau
   return selectOption(PROVIDERS, 'Select your provider');
 }
 
+
+async function selectProviderWithPrompt(message: string): Promise<{ id: ProviderType; name: string; defaultUrl: string }> {
+  console.log(chalk.cyan('\n' + message));
+  PROVIDERS.forEach((p, i) => { console.log(String(i + 1) + '. ' + p.name); });
+  const providerIds = ['openai', 'anthropic', 'custom'];
+  while (true) {
+    const answer = await prompt('Enter a number (1-3) or name: ');
+    const trimmed = answer.trim().toLowerCase();
+    const num = parseInt(trimmed, 10);
+    if (num >= 1 && num <= PROVIDERS.length) { return PROVIDERS[num - 1]; }
+    if (providerIds.includes(trimmed)) { return PROVIDERS.find(p => p.id === trimmed)!; }
+    console.log(chalk.yellow('Invalid selection. Please try again.'));
+  }
+}
+
 async function selectEndpoint(provider: ProviderType): Promise<string> {
   if (provider === 'anthropic') {
     return 'https://api.anthropic.com';
@@ -225,6 +260,16 @@ async function selectEndpoint(provider: ProviderType): Promise<string> {
   return PROVIDERS.find(p => p.id === provider)?.defaultUrl || '';
 }
 
+
+async function selectEndpointWithPrompt(provider: ProviderType): Promise<string> {
+  if (provider === 'anthropic') { return 'https://api.anthropic.com'; }
+  if (provider === 'custom') {
+    const answer = await prompt('Enter custom endpoint URL: ');
+    return answer.trim();
+  }
+  return PROVIDERS.find(p => p.id === provider)?.defaultUrl || '';
+}
+
 async function getConfig(): Promise<Config> {
   const envProvider = process.env.LLM_PROVIDER || '';
   const envApiKey = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || '';
@@ -235,6 +280,7 @@ async function getConfig(): Promise<Config> {
   const savedConfig = await loadConfig();
 
   let provider: ProviderType;
+  let providerMode: string = savedConfig?.mode || 'openai';
   let providerInfo: { id: ProviderType; name: string; defaultUrl: string };
 
   if (envProvider && PROVIDERS.some(p => p.id === envProvider)) {
@@ -248,6 +294,21 @@ async function getConfig(): Promise<Config> {
   } else {
     providerInfo = await selectProvider();
     provider = providerInfo.id;
+  }
+
+  // Ask for mode when custom provider
+  if (provider === 'custom') {
+    const envMode = process.env.LLM_MODE || '';
+    if (envMode === 'anthropic') {
+      providerMode = 'anthropic';
+    } else if (savedConfig?.mode) {
+      providerMode = savedConfig.mode;
+    } else {
+      console.log(chalk.cyan(''));
+      const modeAnswer = (await prompt('API mode - openai (OpenAI-compatible) or anthropic (Anthropic-compatible)? (o/a): ')).trim().toLowerCase();
+      providerMode = modeAnswer === 'a' ? 'anthropic' : 'openai';
+    }
+    console.log(chalk.green('Mode: ' + providerMode));
   }
 
   let endpoint = envBaseUrl || savedConfig?.baseUrl || '';
@@ -276,6 +337,16 @@ async function getConfig(): Promise<Config> {
   }
 
   const config: Config = { provider, apiKey: key, baseUrl: endpoint, modelName: model };
+
+  if (provider === 'custom' && providerMode) config.mode = providerMode as 'openai' | 'anthropic';
+
+  // Preserve existing judge config when saving
+  if (savedConfig) {
+    if (savedConfig.judgeProvider) config.judgeProvider = savedConfig.judgeProvider;
+    if (savedConfig.judgeApiKey) config.judgeApiKey = savedConfig.judgeApiKey;
+    if (savedConfig.judgeBaseUrl) config.judgeBaseUrl = savedConfig.judgeBaseUrl;
+    if (savedConfig.judgeModelName) config.judgeModelName = savedConfig.judgeModelName;
+  }
   
   // Save config if not from env
   if (!envProvider && !envApiKey && !envModelName) {
@@ -313,7 +384,7 @@ async function selectBenchmarks(): Promise<Benchmark[]> {
 
 async function runBenchmarks() {
   const config: Config = await getConfig();
-  const client: LLMClient = createLLMClient(config.provider, config.apiKey, config.baseUrl, config.modelName);
+  const client: LLMClient = createLLMClient(config.provider, config.apiKey, config.baseUrl, config.modelName, config.mode);
 
   const benchmarks = await selectBenchmarks();
 
@@ -343,13 +414,13 @@ async function runBenchmarks() {
       if (useJudgeEnv && PROVIDERS.some(p => p.id === useJudgeEnv)) {
         judgeProvider = useJudgeEnv as ProviderType;
       } else {
-        const providerInfo = await selectProvider();
+        const providerInfo = await selectProviderWithPrompt('Select judge provider:');
         judgeProvider = providerInfo.id;
       }
 
       judgeBaseUrl = process.env.JUDGE_BASE_URL || config.judgeBaseUrl || '';
       if (!judgeBaseUrl) {
-        judgeBaseUrl = await selectEndpoint(judgeProvider);
+        judgeBaseUrl = await selectEndpointWithPrompt(judgeProvider);
       }
 
       const judgeApiKey = process.env.JUDGE_API_KEY || config.judgeApiKey || '';

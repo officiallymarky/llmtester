@@ -5,6 +5,7 @@ export type ProviderType = 'openai' | 'anthropic' | 'custom';
 export interface LLMClient {
   provider: ProviderType;
   baseUrl: string;
+  mode?: 'openai' | 'anthropic';
   model: string;
   chat(messages: { role: string; content: string }[], options?: {
     temperature?: number;
@@ -18,6 +19,7 @@ export interface LLMClient {
 
 export class OpenAICompatibleClient implements LLMClient {
   public provider: ProviderType = 'openai';
+  public mode: 'openai' = 'openai';
   public baseUrl: string;
   public model: string;
   private apiKey: string;
@@ -67,6 +69,7 @@ export class OpenAICompatibleClient implements LLMClient {
 
 export class AnthropicClient implements LLMClient {
   public provider: ProviderType = 'anthropic';
+  public mode: 'anthropic' = 'anthropic';
   public baseUrl: string;
   public model: string;
   private apiKey: string;
@@ -80,6 +83,7 @@ export class AnthropicClient implements LLMClient {
     this.httpClient = axios.create({
       baseURL,
       headers: {
+        'Authorization': 'Bearer ' + apiKey,
         'x-api-key': apiKey,
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
@@ -113,7 +117,9 @@ export class AnthropicClient implements LLMClient {
       requestBody.system = systemMessage.content;
     }
 
-    const response = await this.httpClient.post('/v1/messages', requestBody);
+        // For custom URLs (e.g. MiniMax), use /messages instead of /v1/messages
+    const path = this.baseUrl && !this.baseUrl.includes('api.anthropic.com') ? 'v1/messages' : '/v1/messages';
+    const response = await this.httpClient.post(path, requestBody);
 
     return {
       content: response.data.content?.[0]?.text || '',
@@ -131,9 +137,13 @@ export function createLLMClient(
   provider: ProviderType,
   apiKey: string,
   baseUrl: string,
-  model: string
+  model: string,
+  mode?: string
 ): LLMClient {
   if (provider === 'anthropic') {
+    return new AnthropicClient(apiKey, baseUrl, model);
+  }
+  if (provider === 'custom' && mode === 'anthropic') {
     return new AnthropicClient(apiKey, baseUrl, model);
   }
   return new OpenAICompatibleClient(apiKey, baseUrl, model);
