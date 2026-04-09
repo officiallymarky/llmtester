@@ -515,14 +515,14 @@ async function runBenchmarks() {
       const item = data[i];
 
       try {
-        const pct = ((correct / (i + 1)) * 100).toFixed(1);
-        process.stdout.write(`\r${benchmark.name}: ${i + 1}/${data.length} [solving...] ${pct}% correct`);
+        const pct = i === 0 ? '0.0' : ((correct / i) * 100).toFixed(1);
+        process.stdout.write(`\r${benchmark.name}: [solving... ${i + 1}/${data.length}] ${pct}% correct`);
         const response = await evaluator.evaluate(benchmark, item);
         let isCorrect: boolean;
         let judgeResponse: string | undefined;
 
         if (benchmark.useJudge && judgeClient) {
-          process.stdout.write(`\r${benchmark.name}: ${i + 1}/${data.length} [judging...] ${pct}% correct`);
+          process.stdout.write(`\r${benchmark.name}: [judging... ${i + 1}/${data.length}] ${pct}% correct`);
           const result = await evaluator.evaluateAndCheckWithJudge(benchmark, item, response);
           isCorrect = result.correct;
           judgeResponse = result.judgeResponse;
