@@ -71,42 +71,23 @@ const COMMON_OPENAI_ENDPOINTS = [
 ];
 
 async function prompt(message: string): Promise<string> {
-  process.stdin.removeAllListeners('keypress');
-  process.stdin.removeAllListeners('readable');
-  process.stdin.removeAllListeners('data');
-  process.stdin.removeAllListeners('end');
   return new Promise((resolve) => {
-    process.stdout.write(message);
-    let input = '';
-    const onData = (data: Buffer) => {
-      const ch = data.toString();
-      if (ch === '\r' || ch === '\n') {
-        process.stdin.removeListener('data', onData);
-        process.stdin.pause();
-        console.log('');
-        resolve(input);
-        return;
-      }
-      if (ch === '\x7f' || ch === '\x08') {
-        if (input.length > 0) {
-          input = input.slice(0, -1);
-          process.stdout.write('\b \b');
-        }
-        return;
-      }
-      if (ch === '\x03') {
-        process.stdin.removeListener('data', onData);
-        process.exit(0);
-        return;
-      }
-      if (ch.length === 1 && ch >= ' ') {
-        input += ch;
-        process.stdout.write(ch);
-      }
-    };
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.on('data', onData);
+    process.stdin.removeAllListeners('keypress');
+    process.stdin.setRawMode?.(false);
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    rl.question(message, (answer: string) => {
+      rl.close();
+      resolve(answer);
+    });
+
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
   });
 }
 
