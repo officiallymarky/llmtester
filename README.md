@@ -1,4 +1,4 @@
-# llmbenchmark
+# llmtester
 
 An interactive CLI tool for benchmarking LLMs across multiple benchmarks. Run via `npx` without installing.
 
@@ -124,7 +124,7 @@ Results are stored in platform-specific application data directories:
 | Platform | Data Directory |
 |----------|---------------|
 | Linux | `~/.local/share/llmtester/` |
-| macOS | `~/Library/Application Support/llmbenchmark/` |
+| macOS | `~/Library/Application Support/llmtester/` |
 | Windows | `%APPDATA%/llmtester/` |
 
 Within the data directory:
@@ -139,8 +139,8 @@ Config is stored in the platform config directory:
 
 | Platform | Config Directory |
 |----------|-----------------|
-| Linux | `~/.config/llmbenchmark/` |
-| macOS | `~/Library/Application Support/llmbenchmark/` |
+| Linux | `~/.config/llmtester/` |
+| macOS | `~/Library/Application Support/llmtester/` |
 | Windows | `%APPDATA%/llmtester/` |
 
 ## Development
