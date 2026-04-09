@@ -1,6 +1,6 @@
 {
   "name": "llmtester",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Interactive LLM Evaluation Runner for benchmarking LLMs across multiple benchmarks",
   "repository": "https://github.com/officiallymarky/llmtester",
   "main": "dist/index.js",
