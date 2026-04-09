@@ -90,19 +90,55 @@ async function loadData(): Promise<boolean> {
 
 async function loadAllEntries(): Promise<Entry[]> {
   const run = runs[currentRun];
-  const runBenchmarks = run.results.map((r: any) => r.benchmark.toLowerCase());
+  const runResults = run.results; // Array of { benchmark, model, timestamp, ... }
   
   let logFiles: string[] = [];
   try { logFiles = await fs.readdir(detailedLogsDir); } catch (e) {}
 
-  const matchingLogs = logFiles.filter(f => 
-    runBenchmarks.some((b: string) => f.toLowerCase().startsWith(b))
-  );
-  if (matchingLogs.length === 0) return [];
+  // For each result in this run, find the matching log file
+  const matchingLogsByResult: Map<number, string> = new Map();
+
+  for (let r = 0; r < runResults.length; r++) {
+    const result = runResults[r];
+    const benchLower = result.benchmark.toLowerCase();
+    const modelLower = result.model.toLowerCase();
+
+    // Filter log files that match this benchmark and model
+    const candidates = logFiles.filter(f => {
+      const lowerF = f.toLowerCase();
+      return lowerF.startsWith(benchLower + '_') && lowerF.includes('_' + modelLower + '_');
+    });
+
+    if (candidates.length === 0) continue;
+
+    // Parse timestamps from candidate filenames (format: benchmark_model_timestamp.jsonl)
+    const candidatesWithTs = candidates.map(f => {
+      const parts = f.split('_');
+      const tsStr = parts[parts.length - 1]?.replace('.jsonl', '') || '0';
+      return { file: f, ts: parseInt(tsStr) };
+    }).sort((a, b) => b.ts - a.ts); // Sort descending by timestamp
+
+    // Use the result's timestamp to find the closest matching log file
+    const resultTsMs = new Date(result.timestamp).getTime();
+    
+    // Find the log file whose timestamp is closest to (but not after) the result timestamp
+    // Log timestamp is from start of run, result timestamp is from end of run, so log <= result
+    let bestMatch = candidatesWithTs[0].file;
+    for (const c of candidatesWithTs) {
+      if (c.ts <= resultTsMs) {
+        bestMatch = c.file;
+        break;
+      }
+    }
+
+    matchingLogsByResult.set(r, bestMatch);
+  }
+
+  if (matchingLogsByResult.size === 0) return [];
 
   try {
     const allEntries: Entry[] = [];
-    for (const logFile of matchingLogs) {
+    for (const logFile of matchingLogsByResult.values()) {
       const content = await fs.readFile(path.join(detailedLogsDir, logFile), 'utf-8');
       const entries = content.trim().split('\n').map((line: string) => JSON.parse(line));
       allEntries.push(...entries.map((e: any, i: number) => ({
